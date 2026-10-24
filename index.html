@@ -1,1 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#121212">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Dec 23 Gym Tracker</title>
+  <style>
+    :root {
+      --bg: #121212;
+      --card: #1e1e1e;
+      --accent: #00e676;
+      --accent-dim: #00b359;
+      --text: #f5f5f5;
+      --muted: #9e9e9e;
+      --swap: #ff9100;
+      --danger: #ff5252;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding-bottom: 90px; }
+    header { background: var(--card); padding: 16px; border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 10; }
+    .header-top { display: flex; justify-content: space-between; align-items: center; }
+    h1 { font-size: 1.2rem; font-weight: 700; color: var(--accent); }
+    .countdown { font-size: 0.85rem; background: #2c2c2c; padding: 4px 10px; border-radius: 12px; color: #fff; }
+    
+    /* Day Tabs */
+    .tabs { display: flex; overflow-x: auto; gap: 8px; padding: 12px 16px; background: var(--bg); border-bottom: 1px solid #222; }
+    .tab { background: var(--card); color: var(--muted); border: 1px solid #333; padding: 8px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; white-space: nowrap; cursor: pointer; }
+    .tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
 
+    /* Content */
+    .container { padding: 16px; max-width: 600px; margin: 0 auto; }
+    .day-info { margin-bottom: 16px; color: var(--muted); font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; }
+    
+    /* Exercise Card */
+    .ex-card { background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 14px; border: 1px solid #2a2a2a; }
+    .ex-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .ex-title { font-size: 1.05rem; font-weight: 700; color: #fff; }
+    .ex-meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 12px; }
+    .swap-btn { background: transparent; border: 1px solid var(--swap); color: var(--swap); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+    .swap-btn.swapped { background: var(--swap); color: #000; }
+
+    /* Set Rows */
+    .set-row { display: grid; grid-template-columns: 36px 1fr 1fr 44px; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .set-num { font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+    .input-box { background: #121212; border: 1px solid #333; color: #fff; padding: 8px; border-radius: 6px; font-size: 0.95rem; width: 100%; text-align: center; }
+    .done-btn { background: #2c2c2c; border: none; color: var(--muted); height: 36px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1rem; }
+    .done-btn.completed { background: var(--accent); color: #000; }
+
+    /* Weight Tracker Section */
+    .weight-card { background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 16px; border: 1px solid #2a2a2a; }
+    .weight-row { display: flex; gap: 8px; margin-top: 10px; }
+    .btn-primary { background: var(--accent); color: #000; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 700; cursor: pointer; }
+    .weight-log { margin-top: 12px; font-size: 0.85rem; color: var(--muted); max-height: 120px; overflow-y: auto; }
+    .weight-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #2a2a2a; }
+
+    /* Sticky Rest Timer */
+    .timer-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a1a; border-top: 2px solid var(--accent); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 20; }
+    .timer-display { font-size: 1.4rem; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+    .timer-controls button { background: #2c2c2c; color: #fff; border: 1px solid #444; padding: 8px 12px; border-radius: 6px; margin-left: 6px; font-weight: 600; font-size: 0.8rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <h1>6AM Project: Dec 23</h1>
+    <div class="countdown" id="countdown">Loading...</div>
+  </div>
+</header>
+
+<div class="tabs" id="dayTabs"></div>
+
+<div class="container">
+  <div class="day-info">
+    <span id="dayTitle">Workout</span>
+    <button onclick="resetDayChecks()" style="background:none;border:none;color:var(--danger);font-size:0.8rem;cursor:pointer;">Reset Checks</button>
+  </div>
+
+  <div id="workoutContainer"></div>
+
+  <!-- Bodyweight & Progress Log -->
+  <div class="weight-card">
+    <div class="ex-title">Bodyweight Log (Target: -10kg)</div>
+    <div class="weight-row">
+      <input type="number" step="0.1" id="bwInput" class="input-box" placeholder="Weight (kg)" style="text-align:left;">
+      <button class="btn-primary" onclick="logBodyweight()">Save</button>
+    </div>
+    <div class="weight-log" id="bwHistory"></div>
+  </div>
+</div>
+
+<div class="timer-bar">
+  <div>
+    <div style="font-size:0.7rem;color:var(--muted);">REST TIMER</div>
+    <div class="timer-display" id="timerDisplay">00:00</div>
+  </div>
+  <div class="timer-controls">
+    <button onclick="startTimer(60)">60s</button>
+    <button onclick="startTimer(90)">90s</button>
+    <button onclick="startTimer(120)">2m</button>
+    <button onclick="stopTimer()" style="color:var(--danger);">Stop</button>
+  </div>
+</div>
+
+<script>
+const program = {
+  "Mon: Lower A": {
+    subtitle: "6:00 AM • Trap Bar & Quads",
+    exercises: [
+      { id: "m1", name: "Trap Bar Deadlift", swap: "Barbell RDL (Squat Rack)", sets: 3, reps: "6-8", rest: 120 },
+      { id: "m2", name: "Leg Press Machine", swap: "DB Goblet Squat / Front Squat", sets: 3, reps: "10-12", rest: 90 },
+      { id: "m3", name: "Seated Leg Curl", swap: "Dumbbell RDL", sets: 3, reps: "12-15", rest: 60 },
+      { id: "m4", name: "Leg Extension", swap: "DB Walking Lunges", sets: 3, reps: "12-15", rest: 60 },
+      { id: "m5", name: "DB Farmer's Walk + Plank", swap: "Cable Core Pallof Press", sets: 3, reps: "40s / 45s", rest: 60 }
+    ]
+  },
+  "Tue: Upper A": {
+    subtitle: "6:00 AM • Horizontal Push/Pull",
+    exercises: [
+      { id: "tu1", name: "DB Bench Press", swap: "Barbell Bench (Caged Rack)", sets: 3, reps: "8-10", rest: 90 },
+      { id: "tu2", name: "Seated Row Machine", swap: "One-Arm DB Row", sets: 3, reps: "10-12", rest: 90 },
+      { id: "tu3", name: "Shoulder Press Machine", swap: "Seated DB Overhead Press", sets: 3, reps: "10-12", rest: 90 },
+      { id: "tu4", name: "Lat Pulldown", swap: "High-Pulley Functional Row", sets: 3, reps: "10-12", rest: 90 },
+      { id: "tu5", name: "Tricep Pushdown + Hammer Curl", swap: "DB Overhead Ext + Bar Curl", sets: 3, reps: "12-15 / 10-12", rest: 60 }
+    ]
+  },
+  "Wed: Pool/Cardio": {
+    subtitle: "6:00 AM • 25m Pool & Recovery",
+    exercises: [
+      { id: "w1", name: "Cross Trainer or Bike", swap: "Rowing Machine (Zone 2)", sets: 1, reps: "15 mins", rest: 60 },
+      { id: "w2", name: "25m Pool Intervals (50m brisk)", swap: "Steady Freestyle / Breaststroke", sets: 10, reps: "50m (2 lengths)", rest: 30 }
+    ]
+  },
+  "Thu: Lower B": {
+    subtitle: "6:00 AM • Squat & Posterior Chain",
+    exercises: [
+      { id: "th1", name: "Barbell Back Squat", swap: "Heavy Leg Press (4x8)", sets: 3, reps: "6-8", rest: 120 },
+      { id: "th2", name: "Dumbbell RDL", swap: "Trap Bar RDL", sets: 3, reps: "8-10", rest: 90 },
+      { id: "th3", name: "DB Reverse Lunges", swap: "Leg Extension Machine", sets: 3, reps: "10/leg", rest: 90 },
+      { id: "th4", name: "Seated Leg Curl", swap: "Bench Glute Bridges", sets: 3, reps: "10-12", rest: 60 },
+      { id: "th5", name: "Step Machine Finisher", swap: "Incline Treadmill Walk", sets: 1, reps: "10 mins", rest: 60 }
+    ]
+  },
+  "Fri: Upper B": {
+    subtitle: "6:00 AM • Vertical Push/Pull",
+    exercises: [
+      { id: "f1", name: "Overhead Barbell Press", swap: "One-Arm Trainer Press", sets: 3, reps: "6-8", rest: 120 },
+      { id: "f2", name: "Chin-Up / Pull-Up Station", swap: "Close-Grip Lat Pulldown", sets: 3, reps: "6-10", rest: 90 },
+      { id: "f3", name: "Pec Flye Machine", swap: "Functional Trainer Crossover", sets: 3, reps: "12-15", rest: 60 },
+      { id: "f4", name: "One-Arm Trainer Cable Row", swap: "Seated Row Machine", sets: 3, reps: "10-12/side", rest: 60 },
+      { id: "f5", name: "Face Pulls + Bicep + Tricep", swap: "DB Lateral Raise + Arm Superset", sets: 3, reps: "15 / 12 / 15", rest: 60 }
+    ]
+  },
+  "Sat: Conditioning": {
+    subtitle: "7:00 AM • Tri-Machine or Class",
+    exercises: [
+      { id: "s1", name: "Rowing Machine", swap: "Gym Class (45m)", sets: 1, reps: "10 mins", rest: 60 },
+      { id: "s2", name: "Step Machine", swap: "Cross Trainer", sets: 1, reps: "10 mins", rest: 60 },
+      { id: "s3", name: "Incline Treadmill Walk", swap: "Bike Intervals", sets: 1, reps: "10 mins", rest: 60 }
+    ]
+  }
+};
+
+let currentDay = localStorage.getItem("gym_currentDay") || "Mon: Lower A";
+let state = JSON.parse(localStorage.getItem("gym_state_2026")) || { logs: {}, swapped: {}, bw: [] };
+let timerInterval = null;
+
+function saveState() {
+  localStorage.setItem("gym_state_2026", JSON.stringify(state));
+}
+
+function updateCountdown() {
+  const target = new Date("2026-12-23T00:00:00");
+  const now = new Date();
+  const diff = Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+  document.getElementById("countdown").innerText = diff > 0 ? `${diff} days to Dec 23` : "Goal Day!";
+}
+
+function renderTabs() {
+  const tabsEl = document.getElementById("dayTabs");
+  tabsEl.innerHTML = "";
+  Object.keys(program).forEach(day => {
+    const btn = document.createElement("button");
+    btn.className = `tab ${day === currentDay ? "active" : ""}`;
+    btn.innerText = day;
+    btn.onclick = () => {
+      currentDay = day;
+      localStorage.setItem("gym_currentDay", currentDay);
+      renderTabs();
+      renderWorkout();
+    };
+    tabsEl.appendChild(btn);
+  });
+}
+
+function toggleSwap(exId) {
+  state.swapped[exId] = !state.swapped[exId];
+  saveState();
+  renderWorkout();
+}
+
+function updateLog(key, field, value) {
+  if (!state.logs[key]) state.logs[key] = { kg: "", reps: "", done: false };
+  state.logs[key][field] = value;
+  saveState();
+}
+
+function toggleSetDone(key, restSeconds) {
+  if (!state.logs[key]) state.logs[key] = { kg: "", reps: "", done: false };
+  state.logs[key].done = !state.logs[key].done;
+  saveState();
+  if (state.logs[key].done) startTimer(restSeconds);
+  renderWorkout();
+}
+
+function resetDayChecks() {
+  const dayData = program[currentDay];
+  dayData.exercises.forEach(ex => {
+    for (let i = 1; i <= ex.sets; i++) {
+      const key = `${ex.id}_s${i}`;
+      if (state.logs[key]) state.logs[key].done = false;
+    }
+  });
+  saveState();
+  renderWorkout();
+}
+
+function renderWorkout() {
+  const dayData = program[currentDay];
+  document.getElementById("dayTitle").innerText = dayData.subtitle;
+  const container = document.getElementById("workoutContainer");
+  container.innerHTML = "";
+
+  dayData.exercises.forEach(ex => {
+    const isSwapped = !!state.swapped[ex.id];
+    const displayName = isSwapped ? ex.swap : ex.name;
+    const card = document.createElement("div");
+    card.className = "ex-card";
+
+    let setsHtml = "";
+    for (let i = 1; i <= ex.sets; i++) {
+      const key = `${ex.id}_s${i}`;
+      const log = state.logs[key] || { kg: "", reps: "", done: false };
+      setsHtml += `
+        <div class="set-row">
+          <div class="set-num">S${i}</div>
+          <input type="text" class="input-box" placeholder="kg" value="${log.kg}" oninput="updateLog('${key}', 'kg', this.value)">
+          <input type="text" class="input-box" placeholder="${ex.reps}" value="${log.reps}" oninput="updateLog('${key}', 'reps', this.value)">
+          <button class="done-btn ${log.done ? 'completed' : ''}" onclick="toggleSetDone('${key}', ${ex.rest})">✓</button>
+        </div>
+      `;
+    }
+
+    card.innerHTML = `
+      <div class="ex-header">
+        <div>
+          <div class="ex-title">${displayName}</div>
+          <div class="ex-meta">${ex.sets} sets × ${ex.reps} • Rest ${ex.rest}s</div>
+        </div>
+        <button class="swap-btn ${isSwapped ? 'swapped' : ''}" onclick="toggleSwap('${ex.id}')">
+          ${isSwapped ? 'Swapped ⇄' : 'Busy? Swap ⇄'}
+        </button>
+      </div>
+      ${setsHtml}
+    `;
+    container.appendChild(card);
+  });
+}
+
+function logBodyweight() {
+  const input = document.getElementById("bwInput");
+  const val = parseFloat(input.value);
+  if (!val) return;
+  const dateStr = new Date().toLocaleDateString("en-IE", { day: "2-digit", month: "short" });
+  state.bw.unshift({ date: dateStr, weight: val });
+  input.value = "";
+  saveState();
+  renderBodyweight();
+}
+
+function renderBodyweight() {
+  const list = document.getElementById("bwHistory");
+  if (!state.bw.length) {
+    list.innerHTML = "<div>No entries yet. Log your starting weight!</div>";
+    return;
+  }
+  const startW = state.bw[state.bw.length - 1].weight;
+  list.innerHTML = state.bw.map(item => {
+    const diff = (item.weight - startW).toFixed(1);
+    const sign = diff > 0 ? "+" : "";
+    return `<div class="weight-item"><span>${item.date}</span><span><strong>${item.weight} kg</strong> (${sign}${diff} kg)</span></div>`;
+  }).join("");
+}
+
+function startTimer(seconds) {
+  clearInterval(timerInterval);
+  let remaining = seconds;
+  const display = document.getElementById("timerDisplay");
+  const renderTime = () => {
+    const m = String(Math.floor(remaining / 60)).padStart(2, "0");
+    const s = String(remaining % 60).padStart(2, "0");
+    display.innerText = `${m}:${s}`;
+  };
+  renderTime();
+  timerInterval = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(timerInterval);
+      display.innerText = "GO!";
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    } else {
+      renderTime();
+    }
+  }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  document.getElementById("timerDisplay").innerText = "00:00";
+}
+
+updateCountdown();
+renderTabs();
+renderWorkout();
+renderBodyweight();
+</script>
+</body>
+</html>
